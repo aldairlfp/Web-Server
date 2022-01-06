@@ -108,11 +108,12 @@ void get_filetype(char *filename, char *filetype) {
     else strcpy(filetype, "text/plain");
 }
 
-void proccessDirectory(int connfd, char *directory) {
+void connectionHandler(int connfd, char *directory) {
     int is_static;
     struct stat sbuf;
     char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
     char filename[MAXLINE], cgiargs[MAXLINE], body[MAXLINE];
+    char *newDir = (char*) malloc(sizeof (char) * MAXLINE);
     rio_t rio;
 
     rio_readinitb(&rio, connfd);
@@ -127,22 +128,23 @@ void proccessDirectory(int connfd, char *directory) {
     read_requesthdrs(&rio);
 
     /* Parse URI from GET request */
-    parse_uri(uri, filename, cgiargs);
-    if (stat(filename, &sbuf) < 0) {
-        clienterror(connfd, filename, "404", "Not found",
-                    "Tiny couldn’t find this file");
-        return;
-    }
+//    parse_uri(uri, filename, cgiargs);
+//    if (stat(filename, &sbuf) < 0) {
+//        clienterror(connfd, filename, "404", "Not found",
+//                    "Tiny couldn’t find this file");
+//        return;
+//    }
 
     char buff[MAXLINE];
+    strcpy(newDir, ".");
+    newDir = strcat(newDir, uri);
 
     /* Build the HTTP response body */
-    sprintf(body, "<html><head>Directorio %s</head></html>", directory);
-//    sprintf(body, "%s<body>\r\n", body);
-//    sprintf(body, "%s%s: %s\r\n", body, errnum, shortmsg);
-//    sprintf(body, "%s<p>%s: %s\r\n", body, longmsg, cause);
-//    sprintf(body, "%s<hr><em>The Tiny Web server</em>\r\n", body);
-
+    sprintf(body, "<html><head>Directorio %s%s</head>\r\n", directory, uri);
+    sprintf(body, "%s<body><table>\r\n", body);
+    sprintf(body, "%s<tr><th>Name</th><th>Size</th><th>Date</th></tr>",body);
+    proccessDirectory(newDir, body);
+    sprintf(body, "%s</table></body></html>", body);
 
     /* Print the HTTP response */
     sprintf(buff, "HTTP/1.0 %s %s\r\n", "200", "OK");
@@ -152,6 +154,7 @@ void proccessDirectory(int connfd, char *directory) {
     sprintf(buff, "Content-length: %d\r\n\r\n", (int) strlen(body));
     rio_writen(connfd, buff, strlen(buff));
     rio_writen(connfd, body, strlen(body));
+    free(newDir);
 }
 
 int parse_uri(char uri[8192], char filename[8192], char cgiargs[8192]) {
@@ -194,15 +197,15 @@ long fileSize(char *fname) {
     fseek(fich, 0L, SEEK_END);
     ftam = ftell(fich);
     fclose(fich);
-
     return ftam;
 }
 
-void proccessFile(char *ruta, struct dirent *ent) {
+void proccessFile(char *ruta, struct dirent *ent, char* body) {
     long ftam;
     char *nombrecompleto;
     char strtam[20];
     char *cuantity;
+    char *fDate;
 
     int i;
     int tmp;
@@ -219,6 +222,7 @@ void proccessFile(char *ruta, struct dirent *ent) {
 
     /* Calcula el tamaño */
     ftam = fileSize(nombrecompleto);
+    fDate = fileDate(ent);
     tipo = ent->d_type;
 
     double res;
@@ -229,24 +233,62 @@ void proccessFile(char *ruta, struct dirent *ent) {
         } else if (ftam > 1048576 && ftam <= 1073741824) {
             res = (double) ftam / 1024 / 1024;
             cuantity = "M";
-        } else if(ftam > 1024 && ftam <= 1048576){
+        } else if (ftam > 1024 && ftam <= 1048576) {
             res = (double) ftam / 1024;
             cuantity = "k";
-        }
-        else {
+        } else {
             res = (double) ftam;
             cuantity = "B";
         }
-    }
-    else {
+    } else {
         res = 0;
         cuantity = "";
     }
-    sprintf(strtam, "%f %s", res, cuantity);
+    sprintf(body, "%s<tr>", body);
+    sprintf(body, "%s<td><a href='%s/%s'>%s</a></td>", body, ruta, ent->d_name, ent->d_name);
+    sprintf(body, "%s<td>%f%s</td>", body, res, cuantity);
+    sprintf(body, "%s<td>%s</td>", body, fDate);
+    sprintf(body, "%s</tr>", body);
+//    sprintf(strtam, "%f %s", res, cuantity);
 
-    printf ("%30s (%s) \n", ent->d_name, strtam);
+//    printf ("%30s (%s) \n", ent->d_name, strtam);
 
     free(nombrecompleto);
+}
+
+char *proccessDirectory(char *dirstring, char *body) {
+    /* Con un puntero a DIR abriremos el directorio */
+    DIR *dir;
+    /* en *ent habrá información sobre el archivo que se está "sacando" a cada momento */
+    struct dirent *ent;
+
+    /* Empezaremos a leer en el directorio actual */
+        dir = opendir(dirstring);
+
+    /* Miramos que no haya error */
+    if (dir == NULL)
+        printf("No puedo abrir el directorio\n");
+
+    /* Una vez nos aseguramos de que no hay error, ¡vamos a jugar! */
+    /* Leyendo uno a uno todos los archivos que hay */
+    while ((ent = readdir(dir)) != NULL) {
+        /* Nos devolverá el directorio actual (.) y el anterior (..), como hace ls */
+        if ((strcmp(ent->d_name, ".") != 0) && (strcmp(ent->d_name, "..") != 0)) {
+            /* Una vez tenemos el archivo, lo pasamos a una función para procesarlo. */
+            proccessFile(dirstring, ent, body);
+        }
+    }
+    closedir(dir);
+    return NULL;
+}
+
+char *fileDate(struct dirent *ent) {
+    char *time;
+    struct stat buf;
+
+    stat(ent->d_name, &buf);
+    time = (char *)ctime(&buf.st_mtime);
+    return time;
 }
 
 int main(int argc, char **argv) {
@@ -269,34 +311,6 @@ int main(int argc, char **argv) {
 
     chdir(dirstring);
 
-
-///* Con un puntero a DIR abriremos el directorio */
-//    DIR *dir;
-//    /* en *ent habrá información sobre el archivo que se está "sacando" a cada momento */
-//    struct dirent *ent;
-//
-////    if (argc != 2) {
-////        error("Uso: ./directorio_2 <ruta>\n");
-////    }
-//    /* Empezaremos a leer en el directorio actual */
-//    dir = opendir(".");
-//
-//    /* Miramos que no haya error */
-//    if (dir == NULL)
-//        printf("No puedo abrir el directorio\n");
-//
-//    /* Una vez nos aseguramos de que no hay error, ¡vamos a jugar! */
-//    /* Leyendo uno a uno todos los archivos que hay */
-//    while ((ent = readdir(dir)) != NULL) {
-//        /* Nos devolverá el directorio actual (.) y el anterior (..), como hace ls */
-//        if ((strcmp(ent->d_name, ".") != 0) && (strcmp(ent->d_name, "..") != 0)) {
-//            /* Una vez tenemos el archivo, lo pasamos a una función para procesarlo. */
-//            proccessFile(".", ent);
-//        }
-//    }
-//    closedir(dir);
-
-
     listenfd = open_listenfd(port);
     while (1) {
         clientlen = sizeof(clientaddr);
@@ -305,7 +319,7 @@ int main(int argc, char **argv) {
                            sizeof(clientaddr.sin_addr.s_addr), AF_INET);
         haddrp = inet_ntoa(clientaddr.sin_addr);
         printf("server connected to (%s)\n", haddrp);
-        proccessDirectory(connfd, dirstring);
+        connectionHandler(connfd, dirstring);
         close(connfd);
     }
     return 0;
