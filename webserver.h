@@ -19,4 +19,4 @@ long fileSize(char *fname);
 char *fileDate(struct dirent *ent);
 void httpResponse();
 void proccessFile(char *ruta, struct dirent *ent, char* body);
-char *proccessDirectory(char *dirstring, char *body);
+void proccessDirectory(char *dirstring, char *body);

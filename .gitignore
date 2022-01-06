@@ -2,3 +2,8 @@
 /cmake-build-debug
 /TEster
 ./webserver.pdf
+.vscode/c_cpp_properties.json
+.gitignore
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
