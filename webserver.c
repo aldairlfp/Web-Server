@@ -111,6 +111,8 @@ void get_filetype(char* filename, char* filetype) {
         strcpy(filetype, "image/jpeg");
     else if (strstr(filename, ".rar"))
         strcpy(filetype, "application/vnd.rar");
+    else if (strstr(filename, ".mp4"))
+        strcpy(filetype, "video/mp4");
     else
         strcpy(filetype, "text/plain");
 }
@@ -185,11 +187,11 @@ void connectionHandler(int connfd, char* directory) {
             int srcfd;
             char* srcp;
             srcfd = open(newDir, O_RDONLY, 0);
-            srcp = mmap(0, sbuf.st_size, PROT_READ, MAP_PRIVATE, srcfd, 0);
+            srcp = mmap(0, sbuf.st_size, PROT_READ, MAP_SHARED, srcfd, 0);
             close(srcfd);
             rio_writen(connfd, srcp, sbuf.st_size);
             munmap(srcp, sbuf.st_size);
-            // rio_writen(connfd, srcp, sbuf.st_size);
+
             //     exit(0);
             // }
             // waitpid(pid, NULL, 0);
