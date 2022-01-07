@@ -4,6 +4,12 @@
 
 #define MAXLINE 8192
 
+typedef struct dirinfo{
+    char *name;
+    char *size;
+    char *date;
+};
+
 typedef struct sockaddr SA;
 
 int open_clientfd(char *hostname, int port);

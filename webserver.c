@@ -124,7 +124,6 @@ void send_all(int socket, void* buffer, size_t length)
     {
         int i = send(socket, ptr, length, 0);
 
-
         if (i < 1) return;
         ptr += i;
         length -= i;
@@ -182,14 +181,14 @@ void connectionHandler(int connfd, char* directory) {
             sprintf(buff, "%sContent-type: %s\r\n\r\n", buff, filetype);
             rio_writen(connfd, buff, strlen(buff));
 
-
             /* Send the file to download */
             int srcfd;
             char* srcp;
             srcfd = open(newDir, O_RDONLY, 0);
             srcp = mmap(0, sbuf.st_size, PROT_READ, MAP_SHARED, srcfd, 0);
             close(srcfd);
-            rio_writen(connfd, srcp, sbuf.st_size);
+            send_all(connfd, srcp, sbuf.st_size);
+            // rio_writen(connfd, srcp, sbuf.st_size);
             munmap(srcp, sbuf.st_size);
 
             //     exit(0);
@@ -264,11 +263,8 @@ long fileSize(char* fname) {
 void proccessFile(char* ruta, struct dirent* ent, char* body) {
     long ftam;
     char* nombrecompleto;
-    char strtam[20];
     char* cuantity;
     char* fDate;
-
-    int i;
     int tmp;
     unsigned char tipo;
 
@@ -287,7 +283,7 @@ void proccessFile(char* ruta, struct dirent* ent, char* body) {
     tipo = ent->d_type;
 
     double res;
-    if (tipo != DT_DIR) {
+    if (!S_ISDIR(tipo)) {
         if (ftam > 1073741824) {
             res = (double)ftam / 1024 / 1024 / 1024;
             cuantity = "G";
@@ -328,6 +324,8 @@ void proccessFile(char* ruta, struct dirent* ent, char* body) {
 }
 
 void proccessDirectory(char* dirstring, char* body) {
+    int countdir = 0;
+
     /* Con un puntero a DIR abriremos el directorio */
     DIR* dir;
     /* en *ent habrá información sobre el archivo que se está "sacando" a cada momento */
