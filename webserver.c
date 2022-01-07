@@ -12,6 +12,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sys/socket.h>
 #include <dirent.h>
 #include <netdb.h>
 #include <arpa/inet.h>
@@ -114,6 +115,20 @@ void get_filetype(char* filename, char* filetype) {
         strcpy(filetype, "text/plain");
 }
 
+void send_all(int socket, void* buffer, size_t length)
+{
+    char* ptr = (char*)buffer;
+    while (length > 0)
+    {
+        int i = send(socket, ptr, length, 0);
+
+
+        if (i < 1) return;
+        ptr += i;
+        length -= i;
+    }
+}
+
 void connectionHandler(int connfd, char* directory) {
     int is_static;
     struct stat sbuf;
@@ -154,6 +169,8 @@ void connectionHandler(int connfd, char* directory) {
             return;
         }
         else {
+            // int pid;
+            // if ((pid = fork()) == 0) {
             char filetype[MAXLINE];
             /* Send response headers to client */
             get_filetype(filename, filetype);
@@ -163,15 +180,19 @@ void connectionHandler(int connfd, char* directory) {
             sprintf(buff, "%sContent-type: %s\r\n\r\n", buff, filetype);
             rio_writen(connfd, buff, strlen(buff));
 
+
             /* Send the file to download */
             int srcfd;
             char* srcp;
-            srcfd = open(filename, O_RDONLY, 0);
+            srcfd = open(newDir, O_RDONLY, 0);
             srcp = mmap(0, sbuf.st_size, PROT_READ, MAP_PRIVATE, srcfd, 0);
             close(srcfd);
             rio_writen(connfd, srcp, sbuf.st_size);
-            waitpid(-1, NULL, 0);
             munmap(srcp, sbuf.st_size);
+            // rio_writen(connfd, srcp, sbuf.st_size);
+            //     exit(0);
+            // }
+            // waitpid(pid, NULL, 0);
         }
     }
     else {
