@@ -8,7 +8,9 @@ typedef struct dirinfo{
     char *name;
     char *size;
     char *date;
-};
+}dirinfo;
+
+void copyDirinfo(struct dirinfo src[], struct dirinfo dest[], int count);
 
 typedef struct sockaddr SA;
 
@@ -24,5 +26,6 @@ void read_requesthdrs(rio_t *rp);
 long fileSize(char *fname);
 char *fileDate(struct dirent *ent);
 void httpResponse();
-void proccessFile(char *ruta, struct dirent *ent, char* body);
-void proccessDirectory(char *dirstring, char *body);
+dirinfo proccessFile(char *ruta, struct dirent *ent);
+int proccessDirectory(char *dirstring, dirinfo *directionInfo);
+int countDirectory(char *dir);

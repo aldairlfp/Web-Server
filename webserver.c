@@ -8,10 +8,12 @@
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sys/sendfile.h>
 #include <sys/socket.h>
 #include <dirent.h>
 #include <netdb.h>
@@ -134,7 +136,7 @@ void connectionHandler(int connfd, char* directory) {
     int is_static;
     struct stat sbuf;
     char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
-    char* filename, cgiargs[MAXLINE], body[MAXLINE];
+    char* filename, cgiargs[MAXLINE];
     char* newDir = (char*)malloc(sizeof(char) * MAXLINE);
     rio_t rio;
 
@@ -170,8 +172,7 @@ void connectionHandler(int connfd, char* directory) {
             return;
         }
         else {
-            // int pid;
-            // if ((pid = fork()) == 0) {
+
             char filetype[MAXLINE];
             /* Send response headers to client */
             get_filetype(filename, filetype);
@@ -186,23 +187,40 @@ void connectionHandler(int connfd, char* directory) {
             char* srcp;
             srcfd = open(newDir, O_RDONLY, 0);
             srcp = mmap(0, sbuf.st_size, PROT_READ, MAP_SHARED, srcfd, 0);
-            close(srcfd);
-            send_all(connfd, srcp, sbuf.st_size);
+            // close(srcfd);
+            sendfile(connfd, srcfd, NULL, sbuf.st_size);
+            // send_all(connfd, srcp, sbuf.st_size);
             // rio_writen(connfd, srcp, sbuf.st_size);
+            close(srcfd);
             munmap(srcp, sbuf.st_size);
-
-            //     exit(0);
-            // }
-            // waitpid(pid, NULL, 0);
         }
     }
     else {
         if (strcmp(uri, "/favicon.ico") != 0) {
+            int countdir;
+            countdir = countDirectory(newDir);
+            char body[countdir * 1024];
+            dirinfo directoryInfo[countdir];
+            proccessDirectory(newDir, &directoryInfo);
+
+
             /* Build the HTTP response body */
             sprintf(body, "<html><head>Directorio %s%s</head>\r\n", directory, uri);
             sprintf(body, "%s<body><table>\r\n", body);
             sprintf(body, "%s<tr><th>Name</th><th>Size</th><th>Date</th></tr>", body);
-            proccessDirectory(newDir, body);
+            for (int i = 0; i < countdir; i++)
+            {
+                sprintf(body, "%s<tr>", body);
+                if (strcmp(newDir, "./") == 0)
+                    sprintf(body, "%s<td><a href='%s%s'>%s</a></td>", body, newDir, directoryInfo[i].name, directoryInfo[i].name);
+                else {
+                    sprintf(body, "%s<td><a href='%s/%s'>%s</a></td>", body, parse_uri(newDir), directoryInfo[i].name, directoryInfo[i].name);
+                }
+                sprintf(body, "%s<td>%s</td>", body, directoryInfo[i].size);
+                sprintf(body, "%s<td>%s</td>", body, directoryInfo[i].date);
+                sprintf(body, "%s</tr>", body);
+            }
+
             sprintf(body, "%s</table></body></html>", body);
 
             /* Print the HTTP response */
@@ -260,13 +278,50 @@ long fileSize(char* fname) {
     return ftam;
 }
 
-void proccessFile(char* ruta, struct dirent* ent, char* body) {
+void copyDirinfo(struct dirinfo src[], struct dirinfo dest[], int count) {
+    for (int i = 0; i < count; i++)
+        dest[i] = src[i];
+}
+
+int proccessDirectory(char* dirstring, dirinfo* directionInfo) {
+    int k = 0;
+    /* Con un puntero a DIR abriremos el directorio */
+    DIR* dir;
+    /* en *ent habrá información sobre el archivo que se está "sacando" a cada momento */
+    struct dirent* ent;
+
+    /* Empezaremos a leer en el directorio actual */
+    dir = opendir(dirstring);
+
+    /* Miramos que no haya error */
+    if (dir == NULL) {
+        return -1;
+    }
+
+    /* Una vez nos aseguramos de que no hay error, ¡vamos a jugar! */
+    /* Leyendo uno a uno todos los archivos que hay */
+    while ((ent = readdir(dir)) != NULL) {
+        /* Nos devolverá el directorio actual (.) y el anterior (..), como hace ls */
+        if ((strcmp(ent->d_name, ".") != 0) && (strcmp(ent->d_name, "..") != 0)) {
+            /* Una vez tenemos el archivo, lo pasamos a una función para procesarlo. */
+            *(directionInfo + k) = proccessFile(dirstring, ent);
+            dirinfo test;
+            
+            k++;
+        }
+    }
+    closedir(dir);
+    return 0;
+}
+
+dirinfo proccessFile(char* ruta, struct dirent* ent) {
     long ftam;
     char* nombrecompleto;
     char* cuantity;
     char* fDate;
     int tmp;
     unsigned char tipo;
+    dirinfo directionInfo;
 
     /* Sacamos el nombre completo con la ruta del archivo */
     tmp = strlen(ruta);
@@ -305,25 +360,29 @@ void proccessFile(char* ruta, struct dirent* ent, char* body) {
         res = 0;
         cuantity = "";
     }
-    sprintf(body, "%s<tr>", body);
-    if (strcmp(ruta, "./") == 0)
-        sprintf(body, "%s<td><a href='%s%s'>%s</a></td>", body, ruta, ent->d_name, ent->d_name);
-    else {
-
-
-        sprintf(body, "%s<td><a href='%s/%s'>%s</a></td>", body, parse_uri(ruta), ent->d_name, ent->d_name);
-    }
-    sprintf(body, "%s<td>%f%s</td>", body, res, cuantity);
-    sprintf(body, "%s<td>%s</td>", body, fDate);
-    sprintf(body, "%s</tr>", body);
+    char size[100];
+    sprintf(size, "%ld%s", ftam, cuantity);
+    directionInfo.name = ent->d_name;
+    directionInfo.date = fDate;
+    directionInfo.size = size;
+    // sprintf(body, "%s<tr>", body);
+    // if (strcmp(ruta, "./") == 0)
+    //     sprintf(body, "%s<td><a href='%s%s'>%s</a></td>", body, ruta, ent->d_name, ent->d_name);
+    // else {
+    //     sprintf(body, "%s<td><a href='%s/%s'>%s</a></td>", body, parse_uri(ruta), ent->d_name, ent->d_name);
+    // }
+    // sprintf(body, "%s<td>%f%s</td>", body, res, cuantity);
+    // sprintf(body, "%s<td>%s</td>", body, fDate);
+    // sprintf(body, "%s</tr>", body);
     //    sprintf(strtam, "%f %s", res, cuantity);
 
     //    printf ("%30s (%s) \n", ent->d_name, strtam);
 
     free(nombrecompleto);
+    return directionInfo;
 }
 
-void proccessDirectory(char* dirstring, char* body) {
+int countDirectory(char* dirstring) {
     int countdir = 0;
 
     /* Con un puntero a DIR abriremos el directorio */
@@ -336,8 +395,7 @@ void proccessDirectory(char* dirstring, char* body) {
 
     /* Miramos que no haya error */
     if (dir == NULL) {
-        printf("No puedo abrir el directorio\n");
-        return;
+        return -1;
     }
 
     /* Una vez nos aseguramos de que no hay error, ¡vamos a jugar! */
@@ -346,10 +404,11 @@ void proccessDirectory(char* dirstring, char* body) {
         /* Nos devolverá el directorio actual (.) y el anterior (..), como hace ls */
         if ((strcmp(ent->d_name, ".") != 0) && (strcmp(ent->d_name, "..") != 0)) {
             /* Una vez tenemos el archivo, lo pasamos a una función para procesarlo. */
-            proccessFile(dirstring, ent, body);
+            countdir++;
         }
     }
     closedir(dir);
+    return countdir;
 }
 
 char* fileDate(struct dirent* ent) {
@@ -359,6 +418,13 @@ char* fileDate(struct dirent* ent) {
     stat(ent->d_name, &buf);
     time = (char*)ctime(&buf.st_mtime);
     return time;
+}
+
+void sigchld_handler(int sig)
+{
+    while (waitpid(-1, 0, WNOHANG) > 0)
+        ;
+    return;
 }
 
 int main(int argc, char** argv) {
@@ -381,16 +447,20 @@ int main(int argc, char** argv) {
 
     chdir(dirstring);
 
+    signal(SIGCHLD, sigchld_handler);
     listenfd = open_listenfd(port);
     while (1) {
         clientlen = sizeof(clientaddr);
         connfd = accept(listenfd, (SA*)&clientaddr, &clientlen);
+        int pid;
+        // if ((pid = fork()) == 0) {
+        close(listenfd);
         hp = gethostbyaddr((const char*)&clientaddr.sin_addr.s_addr,
             sizeof(clientaddr.sin_addr.s_addr), AF_INET);
         haddrp = inet_ntoa(clientaddr.sin_addr);
-        printf("server connected to (%s)\n", haddrp);
-        // echo(connfd);
         connectionHandler(connfd, dirstring);
+        // exit(0);
+        // }
         close(connfd);
     }
     return 0;
