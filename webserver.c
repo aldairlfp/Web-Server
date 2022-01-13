@@ -150,10 +150,11 @@ void connectionHandler(int connfd, char* directory) {
 
     read_requesthdrs(&rio);
 
-    char orderby[MAXLINE], order[MAXLINE];
 
     /* Parse URI from GET request */
-    filename = parse_uri(&uri, &orderby, &order);
+    filename = parse_uri(&uri);
+    printf("%s\n", orderName);
+    printf("%s\n", orderState);
 
     char buff[MAXLINE];
     strcpy(newDir, ".");
@@ -214,22 +215,53 @@ void connectionHandler(int connfd, char* directory) {
             }
             proccessDirectory(newDir, countdir, &names, &sizes, &dates);
 
+            int* indexs;
+
+            if (strcmp(orderState, "ascending")) {
+                strcpy(orderState, "ascending");
+            }
+            else if (strcmp(orderState, "descending")) {
+                strcpy(orderState, "descending");
+            }
+            else {
+                strcpy(orderState, "ascending");
+            }
+
+            if (strcmp(orderName, "name")) {
+                strcpy(orderName, "name");
+                indexs = sortDir(names, countdir, orderState);
+            }
+            else if (strcmp(orderName, "size")) {
+                strcpy(orderName, "size");
+                indexs = sortDir(sizes, countdir, orderState);
+            }
+            else if (strcmp(orderName, "date")) {
+                strcpy(orderName, "date");
+                indexs = sortDir(dates, countdir, orderState);
+            }
+            else {
+                strcpy(orderName, "name");
+                indexs = sortDir(names, countdir, orderState);
+            }
+
             /* Build the HTTP response body */
             sprintf(body, "<html><head>Directorio %s%s</head>\r\n", directory, uri);
             sprintf(body, "%s<body><table>\r\n", body);
-            sprintf(body, "%s<tr><th><a href='%s?order=ascending'>Name</a></th>", body, uri);
-            sprintf(body, "%s<th>Size</th>", body);
-            sprintf(body, "%s<th>Date</th></tr>", body);
+            sprintf(body, "%s<tr><th><a href='%s?ORDER_BY=name'>Name</a></th>", body, uri);
+            sprintf(body, "%s<th><a href='%s?ORDER_BY=size'>Size</a></th>", body, uri);
+            sprintf(body, "%s<th><a href='%s?ORDER_BY=date'>Date</a></th>", body, uri);
+            sprintf(body, "%s<th><a href='%s?ORDER=ascending&ORDER_BY=%s'>ASC</a></th>", body, uri, orderName);
+            sprintf(body, "%s<th><a href='%s?ORDER=descending&ORDER_BY=%s'>DESC</a></th></tr>", body, uri, orderName);
             for (int i = 0; i < countdir; i++)
             {
                 sprintf(body, "%s<tr>", body);
                 if (strcmp(newDir, "./") == 0)
-                    sprintf(body, "%s<td><a href='%s%s'>%s</a></td>", body, newDir, names[i], names[i]);
+                    sprintf(body, "%s<td><a href='%s%s'>%s</a></td>", body, newDir, names[indexs[i]], names[indexs[i]]);
                 else {
-                    sprintf(body, "%s<td><a href='%s/%s'>%s</a></td>", body, filename, names[i], names[i]);
+                    sprintf(body, "%s<td><a href='%s/%s'>%s</a></td>", body, filename, names[indexs[i]], names[indexs[i]]);
                 }
-                sprintf(body, "%s<td>%s</td>", body, sizes[i]);
-                sprintf(body, "%s<td>%s</td>", body, dates[i]);
+                sprintf(body, "%s<td>%s</td>", body, sizes[indexs[i]]);
+                sprintf(body, "%s<td>%s</td>", body, dates[indexs[i]]);
                 sprintf(body, "%s</tr>", body);
             }
             sprintf(body, "%s</table></body></html>", body);
@@ -242,9 +274,10 @@ void connectionHandler(int connfd, char* directory) {
             sprintf(buff, "Content-length: %d\r\n\r\n", (int)strlen(body));
             rio_writen(connfd, buff, strlen(buff));
             rio_writen(connfd, body, strlen(body));
-            free(names);
-            free(sizes);
-            free(dates);
+            free(indexs);
+            // free(names);
+            // free(sizes);
+            // free(dates);
         }
     }
     filename = NULL;
@@ -252,24 +285,54 @@ void connectionHandler(int connfd, char* directory) {
     free(newDir);
 }
 
-char* parse_uri(char* ruta, char* orderby, char* order) {
+char* parse_uri(char* ruta) {
+    char* tokens[MAXLINE];
     int indexLastSlash = 0;
     int startParams = 0;
+    int startSecondParam = 0;
     char* tmpRute = malloc(sizeof(ruta));
     int k = 0;
-    *tmpRute = '.';
     for (int i = 0; i < strlen(ruta); i++)
     {
         if (*(ruta + i) == '/')
             indexLastSlash = i;
         if (*(ruta + i) == '?')
             startParams = i + 1;
-        if (startParams != 0)
+
+        if (startParams != 0) {
             *(tmpRute + k++) = *(ruta + i + 1);
+        }
     }
-    orderby = strchr(tmpRute, '=') + 1;
-    order = strrchr(tmpRute, '=') + 1;
-    // sscanf(tmpRute, "ORDER_BY=%s&ORDER=%s", orderby, order);
+    if (startParams) {
+        tokens[0] = strtok(tmpRute, "&");
+        int numTokens = 1;
+        while ((tokens[numTokens] = strtok(NULL, "&")) != NULL) numTokens++;
+
+        char* order1;
+        char* order2;
+
+        if ((strstr(tokens[0], "ORDER_BY=") == NULL)) {
+            if (tokens[1] != NULL)
+                order1 = strstr(tokens[1], "ORDER_BY=") + 9;
+        }
+        else order1 = strstr(tokens[0], "ORDER_BY=") + 9;
+
+        if ((strstr(tokens[0], "ORDER=") == NULL)) {
+            if (tokens[1] != NULL)
+                order2 = strstr(tokens[1], "ORDER=") + 6;
+        }
+        else order2 = strstr(tokens[0], "ORDER=") + 6;
+
+
+
+        if (order1 != NULL)
+            strcpy(orderName, order1);
+
+        if (order2 != NULL)
+            strcpy(orderState, order2);
+
+        *(ruta + startParams - 1) = '\0';
+    }
     free(tmpRute);
     char* rute;
     rute = malloc(strlen(ruta) + 1);
@@ -409,6 +472,37 @@ int countDirectory(char* dirstring) {
     return countdir;
 }
 
+int* sortDir(char** array, int count, char* state) {
+    int* indexs = malloc(sizeof(int) * count);
+    for (int i = 0; i < count; i++)
+    {
+        indexs[i] = i;
+    }
+
+    for (int i = 0; i < count; i++)
+    {
+        for (int j = i + 1; j < count; j++)
+        {
+            if (strcmp(state, "ascending") == 0) {
+                if (strcmp(array[i], array[j]) > 0) {
+                    int temp = indexs[i];
+                    indexs[i] = indexs[j];
+                    indexs[j] = temp;
+                }
+            }
+
+            if (strcmp(state, "descending") == 0) {
+                if (strcmp(array[i], array[j]) < 0) {
+                    int temp = indexs[i];
+                    indexs[i] = indexs[j];
+                    indexs[j] = temp;
+                }
+            }
+        }
+    }
+    return indexs;
+}
+
 char* fileDate(struct dirent* ent) {
     char* time;
     struct stat buf;
@@ -431,8 +525,6 @@ int main(int argc, char** argv) {
     struct hostent* hp;
     char* dirstring, * haddrp;
     char buf[256];
-    orderName = name;
-    orderState = descending;
 
     if (argc != 3) {
         fprintf(stderr, "usage: %s <port> <dir>\n", argv[0]);
@@ -453,14 +545,14 @@ int main(int argc, char** argv) {
         clientlen = sizeof(clientaddr);
         connfd = accept(listenfd, (SA*)&clientaddr, &clientlen);
         int pid;
-        // if ((pid = fork()) == 0) {
-        close(listenfd);
-        hp = gethostbyaddr((const char*)&clientaddr.sin_addr.s_addr,
-            sizeof(clientaddr.sin_addr.s_addr), AF_INET);
-        haddrp = inet_ntoa(clientaddr.sin_addr);
-        connectionHandler(connfd, dirstring);
-        //     exit(0);
-        // }
+        if ((pid = fork()) == 0) {
+            close(listenfd);
+            hp = gethostbyaddr((const char*)&clientaddr.sin_addr.s_addr,
+                sizeof(clientaddr.sin_addr.s_addr), AF_INET);
+            haddrp = inet_ntoa(clientaddr.sin_addr);
+            connectionHandler(connfd, dirstring);
+            exit(0);
+        }
         close(connfd);
     }
     return 0;
