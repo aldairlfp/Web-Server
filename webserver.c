@@ -74,15 +74,6 @@ int open_listenfd(int port) {
     return listenfd;
 }
 
-void echo(int connfd) {
-    int n;
-    char buf[1024];
-    while ((n = read(connfd, buf, 1024)) != 0) {
-        printf("server received %d bytes\n", n);
-        printf("%s", buf);
-    }
-}
-
 void clienterror(int fd, char* cause, char* errnum, char* shortmsg, char* longmsg) {
     char buf[1024], body[1024];
 
@@ -104,31 +95,160 @@ void clienterror(int fd, char* cause, char* errnum, char* shortmsg, char* longms
 }
 
 void get_filetype(char* filename, char* filetype) {
-    if (strstr(filename, ".html"))
+    if (strstr(filename, ".aac"))
+        strcpy(filetype, "audio/aac");
+    else if (strstr(filename, ".abw"))
+        strcpy(filetype, "application/x-abiword");
+    else if (strstr(filename, ".arc"))
+        strcpy(filetype, "application/x-freearc");
+    else if (strstr(filename, ".avi"))
+        strcpy(filetype, "video/x-msvideo");
+    else if (strstr(filename, ".azw"))
+        strcpy(filetype, "application/vnd.amazon.ebook");
+    else if (strstr(filename, ".bin"))
+        strcpy(filetype, "application/octet-stream");
+    else if (strstr(filename, ".bmp"))
+        strcpy(filetype, "image/bmp");
+    else if (strstr(filename, ".bz"))
+        strcpy(filetype, "application/x-bzip");
+    else if (strstr(filename, ".bz2"))
+        strcpy(filetype, "application/x-bzip2");
+    else if (strstr(filename, ".cda"))
+        strcpy(filetype, "application/x-cdf");
+    else if (strstr(filename, ".csh"))
+        strcpy(filetype, "application/x-csh");
+    else if (strstr(filename, ".css"))
+        strcpy(filetype, "text/css");
+    else if (strstr(filename, ".csv"))
+        strcpy(filetype, "text/csv");
+    else if (strstr(filename, ".doc"))
+        strcpy(filetype, "application/msword");
+    else if (strstr(filename, ".docx"))
+        strcpy(filetype, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    else if (strstr(filename, ".eot"))
+        strcpy(filetype, "application/vnd.ms-fontobject");
+    else if (strstr(filename, ".epub"))
+        strcpy(filetype, "application/epub+zip");
+    else if (strstr(filename, ".gz"))
+        strcpy(filetype, "application/gzip");
+    else if (strstr(filename, ".gif"))
+        strcpy(filetype, "image/gif");
+    else if (strstr(filename, ".htm"))
         strcpy(filetype, "text/html");
-    else if (strstr(filename, ".giff"))
-        strcpy(filetype, "image/giff");
+    else if (strstr(filename, ".html"))
+        strcpy(filetype, "text/html");
+    else if (strstr(filename, ".ico"))
+        strcpy(filetype, "image/vnd.microsoft.icon");
+    else if (strstr(filename, ".ics"))
+        strcpy(filetype, "text/calendar");
+    else if (strstr(filename, ".jar"))
+        strcpy(filetype, "application/java-archive");
+    else if (strstr(filename, ".jpeg"))
+        strcpy(filetype, "image/jpeg");
     else if (strstr(filename, ".jpg"))
         strcpy(filetype, "image/jpeg");
+    else if (strstr(filename, ".js"))
+        strcpy(filetype, "text/javascript");
+    else if (strstr(filename, ".json"))
+        strcpy(filetype, "application/json");
+    else if (strstr(filename, ".jsonld"))
+        strcpy(filetype, "application/ld+json");
+    else if (strstr(filename, ".mid"))
+        strcpy(filetype, "audio/midi");
+    else if (strstr(filename, ".midi"))
+        strcpy(filetype, "audio/x-midi");
+    else if (strstr(filename, ".mjs"))
+        strcpy(filetype, "text/javascript");
+    else if (strstr(filename, ".mp3"))
+        strcpy(filetype, "audio/mpeg");
+    else if (strstr(filename, ".mp4"))
+        strcpy(filetype, "video/mpeg");
+    else if (strstr(filename, ".mpeg"))
+        strcpy(filetype, "video/mpeg");
+    else if (strstr(filename, ".mpkg"))
+        strcpy(filetype, "application/vnd.apple.installer+xml");
+    else if (strstr(filename, ".odp"))
+        strcpy(filetype, "application/vnd.oasis.opendocument.presentation");
+    else if (strstr(filename, ".ods"))
+        strcpy(filetype, "application/vnd.oasis.opendocument.spreadsheet");
+    else if (strstr(filename, ".odt"))
+        strcpy(filetype, "application/vnd.oasis.opendocument.text");
+    else if (strstr(filename, ".oga"))
+        strcpy(filetype, "audio/ogg");
+    else if (strstr(filename, ".ogv"))
+        strcpy(filetype, "video/ogg");
+    else if (strstr(filename, ".ogx"))
+        strcpy(filetype, "application/ogg");
+    else if (strstr(filename, ".opus"))
+        strcpy(filetype, "audio/opus");
+    else if (strstr(filename, ".otf"))
+        strcpy(filetype, "font/otf");
+    else if (strstr(filename, ".png"))
+        strcpy(filetype, "image/png");
+    else if (strstr(filename, ".pdf"))
+        strcpy(filetype, "application/pdf");
+    else if (strstr(filename, ".php"))
+        strcpy(filetype, "application/x-httpd-php");
+    else if (strstr(filename, ".ppt"))
+        strcpy(filetype, "application/vnd.ms-powerpoint");
+    else if (strstr(filename, ".pptx"))
+        strcpy(filetype, "application/vnd.openxmlformats-officedocument.presentationml.presentation");
     else if (strstr(filename, ".rar"))
         strcpy(filetype, "application/vnd.rar");
-    else if (strstr(filename, ".mp4"))
-        strcpy(filetype, "video/mp4");
+    else if (strstr(filename, ".rtf"))
+        strcpy(filetype, "application/rtf");
+    else if (strstr(filename, ".sh"))
+        strcpy(filetype, "application/x-sh");
+    else if (strstr(filename, ".svg"))
+        strcpy(filetype, "image/svg+xml");
+    else if (strstr(filename, ".swf"))
+        strcpy(filetype, "application/x-shockwave-flash");
+    else if (strstr(filename, ".tar"))
+        strcpy(filetype, "application/x-tar");
+    else if (strstr(filename, ".tif"))
+        strcpy(filetype, "image/tiff");
+    else if (strstr(filename, ".tiff"))
+        strcpy(filetype, "image/tiff");
+    else if (strstr(filename, ".ts"))
+        strcpy(filetype, "video/mp2t");
+    else if (strstr(filename, ".ttf"))
+        strcpy(filetype, "font/ttf");
+    else if (strstr(filename, ".txt"))
+        strcpy(filetype, "text/plain");
+    else if (strstr(filename, ".vsd"))
+        strcpy(filetype, "application/vnd.visio");
+    else if (strstr(filename, ".wav"))
+        strcpy(filetype, "audio/wav");
+    else if (strstr(filename, ".weba"))
+        strcpy(filetype, "audio/webm");
+    else if (strstr(filename, ".webm"))
+        strcpy(filetype, "video/webm");
+    else if (strstr(filename, ".webp"))
+        strcpy(filetype, "image/webp");
+    else if (strstr(filename, ".woff"))
+        strcpy(filetype, "font/woff");
+    else if (strstr(filename, ".woff2"))
+        strcpy(filetype, "font/woff2");
+    else if (strstr(filename, ".xhtml"))
+        strcpy(filetype, "application/xhtml+xml");
+    else if (strstr(filename, ".xls"))
+        strcpy(filetype, "application/vnd.ms-excel");
+    else if (strstr(filename, ".xlsx"))
+        strcpy(filetype, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    else if (strstr(filename, ".xml"))
+        strcpy(filetype, "application/xml");
+    else if (strstr(filename, ".xul"))
+        strcpy(filetype, "application/vnd.mozilla.xul+xml");
+    else if (strstr(filename, ".zip"))
+        strcpy(filetype, "application/zip");
+    else if (strstr(filename, ".3gp"))
+        strcpy(filetype, "video/3gpp");
+    else if (strstr(filename, ".3g2"))
+        strcpy(filetype, "video/3gpp2");
+    else if (strstr(filename, ".7z"))
+        strcpy(filetype, "application/x-7z-compressed");
     else
         strcpy(filetype, "text/plain");
-}
-
-void send_all(int socket, void* buffer, size_t length)
-{
-    char* ptr = (char*)buffer;
-    while (length > 0)
-    {
-        int i = send(socket, ptr, length, 0);
-
-        if (i < 1) return;
-        ptr += i;
-        length -= i;
-    }
 }
 
 void connectionHandler(int connfd, char* directory) {
@@ -148,13 +268,10 @@ void connectionHandler(int connfd, char* directory) {
         return;
     }
 
-    read_requesthdrs(&rio);
-
-    printf("%s\n", uri);
+    // read_requesthdrs(&rio);
 
     /* Parse URI from GET request */
     filename = parse_uri(&uri);
-
 
     char buff[MAXLINE];
     strcpy(newDir, ".");
@@ -214,9 +331,6 @@ void connectionHandler(int connfd, char* directory) {
             }
             proccessDirectory(newDir, countdir, &names, &sizes, &dates);
 
-            printf("1-%s\n", orderName);
-            printf("1-%s\n", orderState);
-
             if (strcmp(orderState, "ascending") == 0) {
                 strcpy(orderState, "ascending");
             }
@@ -260,7 +374,7 @@ void connectionHandler(int connfd, char* directory) {
                 else {
                     sprintf(body, "%s<td><a href='%s/%s'>%s</a></td>", body, filename, names[i], names[i]);
                 }
-                sprintf(body, "%s<td>%i</td>", body, sizes[i]);
+                sprintf(body, "%s<td>%iB</td>", body, sizes[i]);
                 sprintf(body, "%s<td>%s</td>", body, dates[i]);
                 sprintf(body, "%s</tr>", body);
             }
@@ -696,15 +810,15 @@ int main(int argc, char** argv) {
         clientlen = sizeof(clientaddr);
         connfd = accept(listenfd, (SA*)&clientaddr, &clientlen);
         int pid;
-        // if ((pid = fork()) == 0) {
+        if ((pid = fork()) == 0) {
             close(listenfd);
             hp = gethostbyaddr((const char*)&clientaddr.sin_addr.s_addr,
                 sizeof(clientaddr.sin_addr.s_addr), AF_INET);
             haddrp = inet_ntoa(clientaddr.sin_addr);
             connectionHandler(connfd, dirstring);
             exit(0);
-        // }
-        // close(connfd);
+        }
+        close(connfd);
     }
     return 0;
 }
