@@ -19,10 +19,13 @@ void get_filetype(char* filename, char* filetype);
 void read_requesthdrs(rio_t* rp);
 
 char* parse_uri(char* ruta);
-char* fileSize(char* fname, unsigned char type);
+int fileSize(char* fname);
 char* fileDate(struct dirent* ent);
 void httpResponse();
-int proccessDirectory(char* dirstring, int count, char** names, char** sizes, char** dates);
+int proccessDirectory(char* dirstring, int count, char** names, int sizes[], char** dates);
 int countDirectory(char* dir);
 
-int *sortDir(char **array, int count, char *state);
+void sortDir(char* sortby, int count, char** names, int sizes[], char** dates, char* state);
+int cmpDate(char* date1, char* date2);
+int cmpMonth(char* day);
+int* sortDirInt(int array[], int count, char* state);

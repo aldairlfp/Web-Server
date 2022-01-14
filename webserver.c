@@ -150,11 +150,11 @@ void connectionHandler(int connfd, char* directory) {
 
     read_requesthdrs(&rio);
 
+    printf("%s\n", uri);
 
     /* Parse URI from GET request */
     filename = parse_uri(&uri);
-    printf("%s\n", orderName);
-    printf("%s\n", orderState);
+
 
     char buff[MAXLINE];
     strcpy(newDir, ".");
@@ -204,45 +204,45 @@ void connectionHandler(int connfd, char* directory) {
             char body[countdir * 1024];
 
             char* names[countdir];
-            char* sizes[countdir];
+            int sizes[countdir];
             char* dates[countdir];
 
             for (int i = 0; i < countdir; i++)
             {
                 names[i] = (char*)malloc(sizeof(char) * 50);
-                sizes[i] = (char*)malloc(sizeof(char) * 50);
                 dates[i] = (char*)malloc(sizeof(char) * 50);
             }
             proccessDirectory(newDir, countdir, &names, &sizes, &dates);
 
-            int* indexs;
+            printf("1-%s\n", orderName);
+            printf("1-%s\n", orderState);
 
-            if (strcmp(orderState, "ascending")) {
+            if (strcmp(orderState, "ascending") == 0) {
                 strcpy(orderState, "ascending");
             }
-            else if (strcmp(orderState, "descending")) {
+            else if (strcmp(orderState, "descending") == 0) {
                 strcpy(orderState, "descending");
             }
             else {
                 strcpy(orderState, "ascending");
             }
 
-            if (strcmp(orderName, "name")) {
+            if (strcmp(orderName, "name") == 0) {
+                printf("entre1\n");
                 strcpy(orderName, "name");
-                indexs = sortDir(names, countdir, orderState);
             }
-            else if (strcmp(orderName, "size")) {
+            else if (strcmp(orderName, "size") == 0) {
+                printf("entre2\n");
                 strcpy(orderName, "size");
-                indexs = sortDir(sizes, countdir, orderState);
             }
-            else if (strcmp(orderName, "date")) {
+            else if (strcmp(orderName, "date") == 0) {
                 strcpy(orderName, "date");
-                indexs = sortDir(dates, countdir, orderState);
             }
             else {
                 strcpy(orderName, "name");
-                indexs = sortDir(names, countdir, orderState);
             }
+
+            sortDir(orderName, countdir, &names, &sizes, &dates, orderState);
 
             /* Build the HTTP response body */
             sprintf(body, "<html><head>Directorio %s%s</head>\r\n", directory, uri);
@@ -256,12 +256,12 @@ void connectionHandler(int connfd, char* directory) {
             {
                 sprintf(body, "%s<tr>", body);
                 if (strcmp(newDir, "./") == 0)
-                    sprintf(body, "%s<td><a href='%s%s'>%s</a></td>", body, newDir, names[indexs[i]], names[indexs[i]]);
+                    sprintf(body, "%s<td><a href='%s%s'>%s</a></td>", body, newDir, names[i], names[i]);
                 else {
-                    sprintf(body, "%s<td><a href='%s/%s'>%s</a></td>", body, filename, names[indexs[i]], names[indexs[i]]);
+                    sprintf(body, "%s<td><a href='%s/%s'>%s</a></td>", body, filename, names[i], names[i]);
                 }
-                sprintf(body, "%s<td>%s</td>", body, sizes[indexs[i]]);
-                sprintf(body, "%s<td>%s</td>", body, dates[indexs[i]]);
+                sprintf(body, "%s<td>%i</td>", body, sizes[i]);
+                sprintf(body, "%s<td>%s</td>", body, dates[i]);
                 sprintf(body, "%s</tr>", body);
             }
             sprintf(body, "%s</table></body></html>", body);
@@ -274,7 +274,6 @@ void connectionHandler(int connfd, char* directory) {
             sprintf(buff, "Content-length: %d\r\n\r\n", (int)strlen(body));
             rio_writen(connfd, buff, strlen(buff));
             rio_writen(connfd, body, strlen(body));
-            free(indexs);
             // free(names);
             // free(sizes);
             // free(dates);
@@ -287,11 +286,23 @@ void connectionHandler(int connfd, char* directory) {
 
 char* parse_uri(char* ruta) {
     char* tokens[MAXLINE];
+    char spaceRute[MAXLINE];
     int indexLastSlash = 0;
     int startParams = 0;
     int startSecondParam = 0;
     char* tmpRute = malloc(sizeof(ruta));
     int k = 0;
+
+    strcpy(spaceRute, ruta);
+    tokens[0] = strtok(spaceRute, "%20");
+    int numTokens = 1;
+    while ((tokens[numTokens] = strtok(NULL, "%20")) != NULL) numTokens++;
+    for (int i = 1; i < numTokens; i++)
+    {
+        sprintf(spaceRute, "%s %s", spaceRute, tokens[i]);
+    }
+    strcpy(ruta, spaceRute);
+
     for (int i = 0; i < strlen(ruta); i++)
     {
         if (*(ruta + i) == '/')
@@ -303,9 +314,12 @@ char* parse_uri(char* ruta) {
             *(tmpRute + k++) = *(ruta + i + 1);
         }
     }
+
+
+
     if (startParams) {
         tokens[0] = strtok(tmpRute, "&");
-        int numTokens = 1;
+        numTokens = 1;
         while ((tokens[numTokens] = strtok(NULL, "&")) != NULL) numTokens++;
 
         char* order1;
@@ -322,8 +336,6 @@ char* parse_uri(char* ruta) {
                 order2 = strstr(tokens[1], "ORDER=") + 6;
         }
         else order2 = strstr(tokens[0], "ORDER=") + 6;
-
-
 
         if (order1 != NULL)
             strcpy(orderName, order1);
@@ -356,47 +368,17 @@ void read_requesthdrs(rio_t* rp) {
     }
 }
 
-char* fileSize(char* fname, unsigned char type) {
-    FILE* fich;
-    long ftam = -1;
-    char* cuantity;
+int fileSize(char* fname) {
+    struct stat statBuf;
+    // char* cuantity;
 
-    fich = fopen(fname, "r");
-    fseek(fich, 0L, SEEK_END);
-    ftam = ftell(fich);
-    fclose(fich);
-
-    double res;
-    if (!S_ISDIR(type)) {
-        if (ftam > 1073741824) {
-            res = (double)ftam / 1024 / 1024 / 1024;
-            cuantity = "G";
-        }
-        else if (ftam > 1048576 && ftam <= 1073741824) {
-            res = (double)ftam / 1024 / 1024;
-            cuantity = "M";
-        }
-        else if (ftam > 1024 && ftam <= 1048576) {
-            res = (double)ftam / 1024;
-            cuantity = "k";
-        }
-        else {
-            res = (double)ftam;
-            cuantity = "B";
-        }
+    if (stat(fname, &statBuf) == -1) {
+        return -1;
     }
-    else {
-        res = 0;
-        cuantity = "";
-    }
-    char* size;
-    char* resnum;
-    asprintf(&resnum, "%f", res);
-    size = strcat(resnum, cuantity);
-    return size;
+    return (S_ISDIR(statBuf.st_mode)) ? 0 : statBuf.st_size;
 }
 
-int proccessDirectory(char* dirstring, int count, char** names, char** sizes, char** dates) {
+int proccessDirectory(char* dirstring, int count, char** names, int sizes[], char** dates) {
     int k = 0;
     /* Con un puntero a DIR abriremos el directorio */
     DIR* dir;
@@ -429,8 +411,7 @@ int proccessDirectory(char* dirstring, int count, char** names, char** sizes, ch
                 sprintf(filename, "%s%s", dirstring, ent->d_name);
             else
                 sprintf(filename, "%s/%s", dirstring, ent->d_name);
-            char* size = fileSize(filename, ent->d_type);
-            strcpy(sizes[k], size);
+            sizes[k] = fileSize(filename);
             char* date = fileDate(ent);
             strcpy(dates[k], date);
 
@@ -472,7 +453,103 @@ int countDirectory(char* dirstring) {
     return countdir;
 }
 
-int* sortDir(char** array, int count, char* state) {
+void sortDir(char* sortby, int count, char** names, int sizes[], char** dates, char* state) {
+    char* tempName[20];
+    char* tempDate[20];
+    for (int i = 0; i < count; i++)
+    {
+        for (int j = i + 1; j < count; j++)
+        {
+            if (strcmp(state, "ascending") == 0) {
+                if (strcmp(sortby, "name") == 0) {
+                    if (strcmp(names[i], names[j]) > 0) {
+                        strcpy(tempName, names[i]);
+                        strcpy(names[i], names[j]);
+                        strcpy(names[j], tempName);
+                        strcpy(tempDate, dates[i]);
+                        strcpy(dates[i], dates[j]);
+                        strcpy(dates[j], tempDate);
+                        int temp = sizes[i];
+                        sizes[i] = sizes[j];
+                        sizes[j] = temp;
+                    }
+                }
+                if (strcmp(sortby, "size") == 0) {
+                    if (sizes[i] > sizes[j]) {
+                        strcpy(tempName, names[i]);
+                        strcpy(names[i], names[j]);
+                        strcpy(names[j], tempName);
+                        strcpy(tempDate, dates[i]);
+                        strcpy(dates[i], dates[j]);
+                        strcpy(dates[j], tempDate);
+                        int temp = sizes[i];
+                        sizes[i] = sizes[j];
+                        sizes[j] = temp;
+                    }
+                }
+                if (strcmp(sortby, "date") == 0) {
+                    if (cmpDate(dates[i], dates[j]) > 0) {
+                        strcpy(tempName, names[i]);
+                        strcpy(names[i], names[j]);
+                        strcpy(names[j], tempName);
+                        strcpy(tempDate, dates[i]);
+                        strcpy(dates[i], dates[j]);
+                        strcpy(dates[j], tempDate);
+                        int temp = sizes[i];
+                        sizes[i] = sizes[j];
+                        sizes[j] = temp;
+                    }
+                }
+            }
+
+            if (strcmp(state, "descending") == 0) {
+                if (strcmp(sortby, "name") == 0) {
+                    if (strcmp(names[i], names[j]) < 0) {
+                        strcpy(tempName, names[i]);
+                        strcpy(names[i], names[j]);
+                        strcpy(names[j], tempName);
+                        strcpy(tempDate, dates[i]);
+                        strcpy(dates[i], dates[j]);
+                        strcpy(dates[j], tempDate);
+                        int temp = sizes[i];
+                        sizes[i] = sizes[j];
+                        sizes[j] = temp;
+                    }
+                }
+                if (strcmp(sortby, "size") == 0) {
+                    if (sizes[i] < sizes[j]) {
+                        strcpy(tempName, names[i]);
+                        strcpy(names[i], names[j]);
+                        strcpy(names[j], tempName);
+                        strcpy(tempDate, dates[i]);
+                        strcpy(dates[i], dates[j]);
+                        strcpy(dates[j], tempDate);
+                        int temp = sizes[i];
+                        sizes[i] = sizes[j];
+                        sizes[j] = temp;
+                    }
+                }
+                if (strcmp(sortby, "date") == 0) {
+                    if (cmpDate(dates[i], dates[j]) < 0) {
+                        strcpy(tempName, names[i]);
+                        strcpy(names[i], names[j]);
+                        strcpy(names[j], tempName);
+                        strcpy(tempDate, dates[i]);
+                        strcpy(dates[i], dates[j]);
+                        strcpy(dates[j], tempDate);
+                        int temp = sizes[i];
+                        sizes[i] = sizes[j];
+                        sizes[j] = temp;
+                    }
+                }
+            }
+        }
+    }
+    // free(tempName);
+    // free(tempDate);
+}
+
+int* sortDirInt(int array[], int count, char* state) {
     int* indexs = malloc(sizeof(int) * count);
     for (int i = 0; i < count; i++)
     {
@@ -484,19 +561,23 @@ int* sortDir(char** array, int count, char* state) {
         for (int j = i + 1; j < count; j++)
         {
             if (strcmp(state, "ascending") == 0) {
-                if (strcmp(array[i], array[j]) > 0) {
+                printf("%i:%i > %i:%i -> swap after ", array[i], i, array[j], j);
+                if (array[i] > array[j]) {
                     int temp = indexs[i];
                     indexs[i] = indexs[j];
                     indexs[j] = temp;
                 }
+                printf("%i:%i < %i:%i\n", array[i], i, array[j], j);
             }
 
             if (strcmp(state, "descending") == 0) {
-                if (strcmp(array[i], array[j]) < 0) {
+                printf("%i:%i < %i:%i -> swap after ", array[i], i, array[j], j);
+                if (array[i] < array[j]) {
                     int temp = indexs[i];
                     indexs[i] = indexs[j];
                     indexs[j] = temp;
                 }
+                printf("%i:%i > %i:%i\n", array[i], i, array[j], j);
             }
         }
     }
@@ -517,6 +598,76 @@ void sigchld_handler(int sig)
     while (waitpid(-1, 0, WNOHANG) > 0)
         ;
     return;
+}
+
+int cmpMonth(char* day) {
+    if (strcmp(day, "Jan") == 0)
+        return 0;
+    else if (strcmp(day, "Feb") == 0)
+        return 1;
+    else if (strcmp(day, "Mar") == 0)
+        return 2;
+    else if (strcmp(day, "Apr") == 0)
+        return 3;
+    else if (strcmp(day, "May") == 0)
+        return 4;
+    else if (strcmp(day, "Jun") == 0)
+        return 5;
+    else if (strcmp(day, "Jul") == 0)
+        return 6;
+    else if (strcmp(day, "Aug") == 0)
+        return 7;
+    else if (strcmp(day, "Sep") == 0)
+        return 8;
+    else if (strcmp(day, "Oct") == 0)
+        return 9;
+    else if (strcmp(day, "Nov") == 0)
+        return 10;
+    else return 11;
+}
+
+int cmpDate(char* date1, char* date2) {
+    char* tempdate1 = malloc(sizeof(char) * 100);
+    char* tempdate2 = malloc(sizeof(char) * 100);
+    char* tokens1[10];
+    char* tokens2[10];
+
+    strcpy(tempdate1, date1);
+    tokens1[0] = strtok(tempdate1, " \n");
+    int numTokens = 1;
+    while ((tokens1[numTokens] = strtok(NULL, " \n")) != NULL) numTokens++;
+
+    strcpy(tempdate2, date2);
+    tokens2[0] = strtok(tempdate2, " \n");
+    numTokens = 1;
+    while ((tokens2[numTokens] = strtok(NULL, " \n")) != NULL) numTokens++;
+
+
+    if (strcmp(tokens1[4], tokens2[4]) < 0)
+        return -1;
+    else if (strcmp(tokens1[4], tokens2[4]) > 0)
+        return 1;
+    else {
+        if (cmpMonth(tokens1[1]) < cmpMonth(tokens2[1]))
+            return -1;
+        else if (cmpMonth(tokens1[1]) > cmpMonth(tokens2[1]))
+            return 1;
+        else {
+            if (strcmp(tokens1[2], tokens2[2]) < 0)
+                return -1;
+            else if (strcmp(tokens1[2], tokens2[2]) > 0)
+                return 1;
+            else {
+                if (strcmp(tokens1[3], tokens2[3]) < 0)
+                    return -1;
+                else if (strcmp(tokens1[3], tokens2[3]) > 0)
+                    return 1;
+            }
+        }
+    }
+    free(tempdate1);
+    free(tempdate2);
+    return 0;
 }
 
 int main(int argc, char** argv) {
@@ -545,15 +696,15 @@ int main(int argc, char** argv) {
         clientlen = sizeof(clientaddr);
         connfd = accept(listenfd, (SA*)&clientaddr, &clientlen);
         int pid;
-        if ((pid = fork()) == 0) {
+        // if ((pid = fork()) == 0) {
             close(listenfd);
             hp = gethostbyaddr((const char*)&clientaddr.sin_addr.s_addr,
                 sizeof(clientaddr.sin_addr.s_addr), AF_INET);
             haddrp = inet_ntoa(clientaddr.sin_addr);
             connectionHandler(connfd, dirstring);
             exit(0);
-        }
-        close(connfd);
+        // }
+        // close(connfd);
     }
     return 0;
 }
