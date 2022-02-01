@@ -18,6 +18,7 @@ void clienterror(int fd, char* cause, char* errnum, char* shortmsg, char* longms
 void get_filetype(char* filename, char* filetype);
 void read_requesthdrs(rio_t* rp);
 
+char* clean_uri(char* ruta);
 char* parse_uri(char* ruta);
 int fileSize(char* fname);
 char* fileDate(struct dirent* ent);

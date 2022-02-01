@@ -1,5 +1,5 @@
 //
-// Created by aldairlfp on 12/30/21.
+// Created by Jesus Aldair Alfonso Perez and Ramon Cruz Alfonso on 12/30/21.
 //
 
 #include <stdio.h>
@@ -264,11 +264,13 @@ void connectionHandler(int connfd, char* directory) {
     sscanf(buf, "%s %s %s", method, uri, version);
     if (strcasecmp(method, "GET") != 0) {
         clienterror(connfd, method, "501", "Not Implemented",
-            "Tiny does not implement this method");
+            "The server does not implement this method");
         return;
     }
 
     // read_requesthdrs(&rio);
+
+    clean_uri(&uri);
 
     /* Parse URI from GET request */
     filename = parse_uri(&uri);
@@ -279,7 +281,7 @@ void connectionHandler(int connfd, char* directory) {
 
     if (stat(newDir, &sbuf) < 0) {
         clienterror(connfd, filename, "404", "Not found",
-            "Tiny couldn’t find this file");
+            "The server could not find this file");
         return;
     }
 
@@ -398,6 +400,54 @@ void connectionHandler(int connfd, char* directory) {
     free(newDir);
 }
 
+char* clean_uri(char* ruta) {
+     char rutaArrayChar[MAXLINE];
+    strcpy(rutaArrayChar,ruta);
+    char * tokens[MAXLINE];
+    tokens[0] = strtok(rutaArrayChar, "%");
+    int numTokens = 1;
+    while ((tokens[numTokens] = strtok(NULL, "%")) != NULL) 
+    {
+        numTokens++;
+    }
+    int j = strlen(tokens[0]);
+    char destiny[MAXLINE];
+    for (int i = 0; i < numTokens - 1; i++)
+    {
+        char temp[MAXLINE] = "";
+        if(i == 0) strcpy(temp,tokens[0]);
+        else for(int t = 2; t < strlen(tokens[i]); t++) temp[t - 2] = (tokens[i])[t];
+        if(rutaArrayChar[j] == 0 && rutaArrayChar[j + 1] == 50 && rutaArrayChar[j + 2] == 48)
+        {
+            sprintf(destiny, "%s%s", destiny, temp);
+            sprintf(destiny, "%s%s", destiny, " ");
+            j+=3;
+            j+= strlen(tokens[i + 1]) - 2;
+        }
+        else
+        {
+            sprintf(destiny, "%s%s", destiny,temp);
+            j+=1;
+            j+= strlen(tokens[i + 1]) - 2;
+        }        
+    }
+    char temp[MAXLINE] = ""; 
+    if(numTokens == 1) for(int t = 0; t < strlen(tokens[numTokens - 1]); t++) temp[t] = (tokens[numTokens - 1])[t];
+    else for(int t = 2; t < strlen(tokens[numTokens - 1]); t++) temp[t - 2] = (tokens[numTokens - 1])[t];
+    sprintf(destiny, "%s%s", destiny, temp);
+    char * uriParsed;
+    uriParsed = malloc(strlen(destiny) + 1);
+    int k = 0;
+    for (int i = 0 ; i < strlen(destiny); i++)
+    {
+        *(uriParsed + i) = destiny[i];
+        k++;
+    }
+    *(uriParsed + k) = '\0';
+    strcpy(ruta, destiny);
+    free(uriParsed);
+}
+
 char* parse_uri(char* ruta) {
     char* tokens[MAXLINE];
     char spaceRute[MAXLINE];
@@ -407,15 +457,15 @@ char* parse_uri(char* ruta) {
     char* tmpRute = malloc(sizeof(ruta));
     int k = 0;
 
-    strcpy(spaceRute, ruta);
-    tokens[0] = strtok(spaceRute, "%20");
-    int numTokens = 1;
-    while ((tokens[numTokens] = strtok(NULL, "%20")) != NULL) numTokens++;
-    for (int i = 1; i < numTokens; i++)
-    {
-        sprintf(spaceRute, "%s %s", spaceRute, tokens[i]);
-    }
-    strcpy(ruta, spaceRute);
+    // strcpy(spaceRute, ruta);
+    // tokens[0] = strtok(spaceRute, "%20");
+    // int numTokens = 1;
+    // while ((tokens[numTokens] = strtok(NULL, "%20")) != NULL) numTokens++;
+    // for (int i = 1; i < numTokens; i++)
+    // {
+    //     sprintf(spaceRute, "%s %s", spaceRute, tokens[i]);
+    // }
+    // strcpy(ruta, spaceRute);
 
     for (int i = 0; i < strlen(ruta); i++)
     {
@@ -429,11 +479,9 @@ char* parse_uri(char* ruta) {
         }
     }
 
-
-
     if (startParams) {
         tokens[0] = strtok(tmpRute, "&");
-        numTokens = 1;
+        int numTokens = 1;
         while ((tokens[numTokens] = strtok(NULL, "&")) != NULL) numTokens++;
 
         char* order1;
