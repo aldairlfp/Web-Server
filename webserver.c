@@ -289,7 +289,7 @@ void connectionHandler(int connfd, char* directory) {
 
         if (!(S_ISREG(sbuf.st_mode)) || !(S_IRUSR & sbuf.st_mode)) {
             clienterror(connfd, filename, "403", "Forbidden",
-                "Tiny couldn’t read the file");
+                "The server could not read the file");
             return;
         }
         else {
@@ -308,10 +308,7 @@ void connectionHandler(int connfd, char* directory) {
             char* srcp;
             srcfd = open(newDir, O_RDONLY, 0);
             srcp = mmap(0, sbuf.st_size, PROT_READ, MAP_SHARED, srcfd, 0);
-            // close(srcfd);
             sendfile(connfd, srcfd, NULL, sbuf.st_size);
-            // send_all(connfd, srcp, sbuf.st_size);
-            // rio_writen(connfd, srcp, sbuf.st_size);
             close(srcfd);
             munmap(srcp, sbuf.st_size);
         }
@@ -390,9 +387,6 @@ void connectionHandler(int connfd, char* directory) {
             sprintf(buff, "Content-length: %d\r\n\r\n", (int)strlen(body));
             rio_writen(connfd, buff, strlen(buff));
             rio_writen(connfd, body, strlen(body));
-            // free(names);
-            // free(sizes);
-            // free(dates);
         }
     }
     filename = NULL;
@@ -456,16 +450,6 @@ char* parse_uri(char* ruta) {
     int startSecondParam = 0;
     char* tmpRute = malloc(sizeof(ruta));
     int k = 0;
-
-    // strcpy(spaceRute, ruta);
-    // tokens[0] = strtok(spaceRute, "%20");
-    // int numTokens = 1;
-    // while ((tokens[numTokens] = strtok(NULL, "%20")) != NULL) numTokens++;
-    // for (int i = 1; i < numTokens; i++)
-    // {
-    //     sprintf(spaceRute, "%s %s", spaceRute, tokens[i]);
-    // }
-    // strcpy(ruta, spaceRute);
 
     for (int i = 0; i < strlen(ruta); i++)
     {
