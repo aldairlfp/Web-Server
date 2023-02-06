@@ -1,7 +1,0 @@
-/.idea
-/cmake-build-debug
-/TEster
-./webserver.pdf
-/.vscode
-webserver
-parser_uri.c
